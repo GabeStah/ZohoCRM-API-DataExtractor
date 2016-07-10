@@ -93,3 +93,6 @@ ENV/
 
 # AWS Credentials
 .aws
+
+# Hide AWS Secrets
+/bot/settings.py

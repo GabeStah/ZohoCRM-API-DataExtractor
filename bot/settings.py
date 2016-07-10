@@ -14,6 +14,8 @@ BOT_NAME = 'bot'
 SPIDER_MODULES = ['bot.spiders']
 NEWSPIDER_MODULE = 'bot.spiders'
 
+AWS_ACCESS_KEY_ID = 'AKIAI7RHF4PAJONISB7A'
+AWS_SECRET_ACCESS_KEY = 'RvqDOskrGcV0KbQALqKxfFr3956uC4VmbAHWk6Is'
 
 # Crawl responsibly by identifying yourself (and your website) on the user-agent
 #USER_AGENT = 'bot (+http://www.yourdomain.com)'
