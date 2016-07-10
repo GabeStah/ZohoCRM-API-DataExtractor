@@ -95,4 +95,4 @@ ENV/
 .aws
 
 # Hide AWS Secrets
-/bot/settings.py
+/zoho/settings.py

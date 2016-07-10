@@ -1,0 +1,177 @@
+{
+  "response": {
+    "result": {
+      "row": [
+        {
+          "content": "Feeds",
+          "sl": "Feeds",
+          "id": "2010964000000071001",
+          "no": "1",
+          "pl": "Feeds",
+          "gt": "1"
+        },
+        {
+          "content": "Leads",
+          "sl": "Lead",
+          "id": "2010964000000002175",
+          "no": "2",
+          "pl": "Leads",
+          "gt": "1"
+        },
+        {
+          "content": "Accounts",
+          "sl": "Account",
+          "id": "2010964000000002177",
+          "no": "3",
+          "pl": "Accounts",
+          "gt": "1"
+        },
+        {
+          "content": "Contacts",
+          "sl": "Contact",
+          "id": "2010964000000002179",
+          "no": "4",
+          "pl": "Contacts",
+          "gt": "1"
+        },
+        {
+          "content": "Potentials",
+          "sl": "Potential",
+          "id": "2010964000000002181",
+          "no": "5",
+          "pl": "Potentials",
+          "gt": "1"
+        },
+        {
+          "content": "Activities",
+          "sl": "Activity",
+          "id": "2010964000000002203",
+          "no": "6",
+          "pl": "Activities",
+          "gt": "1"
+        },
+        {
+          "content": "Products",
+          "sl": "Product",
+          "id": "2010964000000002213",
+          "no": "7",
+          "pl": "Products",
+          "gt": "1"
+        },
+        {
+          "content": "Campaigns",
+          "sl": "Campaign",
+          "id": "2010964000000002183",
+          "no": "8",
+          "pl": "Campaigns",
+          "gt": "1"
+        },
+        {
+          "content": "Google AdWords",
+          "sl": "Google AdWord",
+          "id": "2010964000000073001",
+          "no": "9",
+          "pl": "Google AdWords",
+          "gt": "1"
+        },
+        {
+          "content": "Visits",
+          "sl": "Visit",
+          "id": "2010964000000077007",
+          "no": "10",
+          "pl": "Visits",
+          "gt": "1"
+        },
+        {
+          "content": "Cases",
+          "sl": "Case",
+          "id": "2010964000000002209",
+          "no": "11",
+          "pl": "Cases",
+          "gt": "1"
+        },
+        {
+          "content": "Solutions",
+          "sl": "Solution",
+          "id": "2010964000000002211",
+          "no": "12",
+          "pl": "Solutions",
+          "gt": "1"
+        },
+        {
+          "content": "Vendors",
+          "sl": "Vendor",
+          "id": "2010964000000002215",
+          "no": "13",
+          "pl": "Vendors",
+          "gt": "1"
+        },
+        {
+          "content": "PriceBooks",
+          "sl": "Price Book",
+          "id": "2010964000000002217",
+          "no": "14",
+          "pl": "Price Books",
+          "gt": "1"
+        },
+        {
+          "content": "Quotes",
+          "sl": "Quote",
+          "id": "2010964000000002219",
+          "no": "15",
+          "pl": "Quotes",
+          "gt": "1"
+        },
+        {
+          "content": "SalesOrders",
+          "sl": "Sales Order",
+          "id": "2010964000000002221",
+          "no": "16",
+          "pl": "Sales Orders",
+          "gt": "1"
+        },
+        {
+          "content": "PurchaseOrders",
+          "sl": "Purchase Order",
+          "id": "2010964000000002223",
+          "no": "17",
+          "pl": "Purchase Orders",
+          "gt": "1"
+        },
+        {
+          "content": "Invoices",
+          "sl": "Invoice",
+          "id": "2010964000000002225",
+          "no": "18",
+          "pl": "Invoices",
+          "gt": "1"
+        },
+        {
+          "content": "Documents",
+          "sl": "Documents",
+          "id": "2010964000000056001",
+          "no": "19",
+          "pl": "Documents",
+          "gt": "1"
+        },
+        {
+          "content": "Emails",
+          "sl": "Email",
+          "id": "2010964000000014163",
+          "no": "20",
+          "pl": "Emails",
+          "gt": "1"
+        },
+        {
+          "content": "Social",
+          "sl": "Social",
+          "id": "2010964000000065001",
+          "no": "21",
+          "pl": "Social",
+          "gt": "1"
+        }
+      ]
+    },
+    "uri": "/crm/private/json/Info/getModules"
+  }
+}

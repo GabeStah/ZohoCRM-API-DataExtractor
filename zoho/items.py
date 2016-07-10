@@ -8,10 +8,21 @@
 import scrapy
 
 
-class BotItem(scrapy.Item):
+class Module(scrapy.Item):
+    id = scrapy.Field()
+    number = scrapy.Field()
+    name = scrapy.Field()
+
+
+class Record(scrapy.Item):
+    id = scrapy.Field()
+    number = scrapy.Field()
+    name = scrapy.Field()
+
+
+class ZohoItem(scrapy.Item):
     # define the fields for your item here like:
     # name = scrapy.Field()
     title = scrapy.Field()
     link = scrapy.Field()
     desc = scrapy.Field()
-
