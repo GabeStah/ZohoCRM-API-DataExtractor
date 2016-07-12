@@ -6,6 +6,7 @@
 # http://doc.scrapy.org/en/latest/topics/items.html
 
 import scrapy
+from scrapy.item import Item, Field
 
 
 class Module(scrapy.Item):
@@ -15,9 +16,10 @@ class Module(scrapy.Item):
 
 
 class Record(scrapy.Item):
-    id = scrapy.Field()
-    number = scrapy.Field()
-    name = scrapy.Field()
+    def __setitem__(self, key, value):
+        if key not in self.fields:
+            self.fields[key] = Field()
+        self._values[key] = value
 
 
 class ZohoItem(scrapy.Item):
