@@ -30,6 +30,9 @@ class ModuleSpider(scrapy.Spider):
         'ZOHO_CRM_AUTH_TOKEN': '9354d7363a28608a9e3878c2084d8dfd'
     }
 
+    def __init__(self, *args, **kwargs):
+        super(ModuleSpider, self).__init__(*args, **kwargs)
+
     def parse(self, response):
         data = json.loads(response.body.decode())
         for row in data['response']['result']['row']:
@@ -42,23 +45,35 @@ class RecordSpider(scrapy.Spider):
     allowed_domains = ["zoho.com"]
 
     custom_settings = {
-        'FEED_FORMAT': 'jsonlines',
+        'FEED_FORMAT': 'json',
         'FEED_URI': 's3://zoho-crm-api-dev/scraping/feeds/%(name)s/%(time)s.json',
         'ZOHO_CRM_AUTH_TOKEN': '9354d7363a28608a9e3878c2084d8dfd'
     }
     json_data = None
+    auth_token = '9354d7363a28608a9e3878c2084d8dfd'
+    base_url = "https://crm.zoho.com/crm/private/json/{0}/getRecords?authtoken={1}&scope=crmapi"
+    full_url = "https://crm.zoho.com/crm/private/json/Leads/getRecords?authtoken=9354d7363a28608a9e3878c2084d8dfd&scope=crmapi"
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, module='', *args, **kwargs):
         super(RecordSpider, self).__init__(*args, **kwargs)
 
         if not MODULES:
             raise ValueError('No modules given')
 
-        # Generate dynamic URLs from acquired modules
-        urls = []
-        for module in MODULES:
-            urls.append("https://crm.zoho.com/crm/private/json/{0}/getRecords?authtoken={1}&scope=crmapi".format(module,
-                                                                                                                 '9354d7363a28608a9e3878c2084d8dfd'))
+        self.module = module
+        #if module:
+            #raise ValueError('No module given')
+
+            # Generate dynamic URLs from acquired modules
+
+            # for module in MODULES:
+            #     urls.append("https://crm.zoho.com/crm/private/json/{0}/getRecords?authtoken={1}&scope=crmapi".format(module, '9354d7363a28608a9e3878c2084d8dfd'))
+            #urls.append(self.base_url.format(module, self.auth_token))
+
+        urls = list()
+        #urls.append(self.full_url)
+        urls.append(self.base_url.format(self.module, self.auth_token))
+
         self.start_urls = urls
 
     # Determine if json exists and is valid
@@ -107,16 +122,17 @@ class RecordSpider(scrapy.Spider):
         #     yield module
 
 
-configure_logging()
-runner = CrawlerRunner()
-
-
 @defer.inlineCallbacks
 def crawl():
     yield runner.crawl(ModuleSpider)
-    yield runner.crawl(RecordSpider)
+    for mod in MODULES:
+        yield runner.crawl(RecordSpider(module=mod))
     reactor.stop()
 
+#if __name__ == "__main__":
+if __name__ == 'zoho.spiders.zoho_crm_spider':
+    configure_logging()
+    runner = CrawlerRunner()
 
-crawl()
-reactor.run()  # the script will block here until the last crawl call is finished
+    crawl()
+    reactor.run()  # the script will block here until the last crawl call is finished
