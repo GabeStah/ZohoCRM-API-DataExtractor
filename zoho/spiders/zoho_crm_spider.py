@@ -8,7 +8,6 @@ class ModuleSpider(scrapy.Spider):
     allowed_domains = ["zoho.com"]
     auth_token = '9354d7363a28608a9e3878c2084d8dfd'
     base_get_records_url = "https://crm.zoho.com/crm/private/json/{0}/getRecords?authtoken={1}&scope=crmapi&fromIndex=1&toIndex=200"
-    debug = True
     json_data = None
     name = "zoho"
     response = None
@@ -22,9 +21,12 @@ class ModuleSpider(scrapy.Spider):
     # Records output to S3
 
     custom_settings = {
+        'DEBUG': True,
         'FEED_FORMAT': 'jsonlines',
         'FEED_URI': 's3://zoho-crm-api-dev/scraping/feeds/%(name)s/%(time)s.json',
-        'ZOHO_CRM_AUTH_TOKEN': '9354d7363a28608a9e3878c2084d8dfd'
+        'ZOHO_CRM_AUTH_TOKEN': '9354d7363a28608a9e3878c2084d8dfd',
+        'ZOHO_INCLUDE_MODULE_NAME': True,
+        'ZOHO_MODULE_WHITELIST': ['Contacts', 'Leads']  # Determines which modules should be parsed (Default: 'ALL')
     }
 
     def __init__(self, *args, **kwargs):
@@ -66,6 +68,18 @@ class ModuleSpider(scrapy.Spider):
             logging.debug('Invalid response, url: {0}.'.format(response.url))
             return False
 
+    # Determine if passed `module_name` is in settings whitelist (if altered)
+    def is_module_allowed(self, module_name):
+        modules = self.settings.get('ZOHO_MODULE_WHITELIST')
+        if type(modules) is str:
+            if (modules.upper() == 'ALL') or modules == module_name:
+                return True
+        elif type(modules) is list:
+            for module in modules:
+                if module.upper() == 'ALL' or module == module_name:
+                    return True
+        return False
+
     # Initial parse to retrieve `Module` data
     def parse(self, response):
         self.response = response
@@ -73,12 +87,15 @@ class ModuleSpider(scrapy.Spider):
 
         for row in data['response']['result']['row']:
             module = row['content']
-            url = self.base_get_records_url.format(module, self.auth_token)
-            # Parse record content for each module
-            yield scrapy.Request(url, meta={'module': module}, callback=self.parse_module_content)
+            # Ensure module is on approved whitelist
+            if self.is_module_allowed(module):
+                url = self.base_get_records_url.format(module, self.auth_token)
+                # Parse record content for each module
+                yield scrapy.Request(url, meta={'module': module}, callback=self.parse_module_content)
 
     # Secondary parse for each `Module` to retrieve `Records` and output to feed
     def parse_module_content(self, response):
+        # TODO: Detect most recent execution date/time from either S3 timestamped directory or provided user setting
         # code: data['response']['error']['code']
         # code: 4100, Unable to populate data
         # code: 4600, Unable to process your request
@@ -112,7 +129,7 @@ class ModuleSpider(scrapy.Spider):
         logging.info('Data retrieved for module: {0}, url: {1}'.format(module, self.response.url))
         for row in self.json_data['response']['result'][module]['row']:
             record = Record()
-            if self.debug:
+            if self.settings.get('ZOHO_INCLUDE_MODULE_NAME'):
                 record['module'] = module
             for FL in row['FL']:
                 record[FL['val']] = FL['content']
