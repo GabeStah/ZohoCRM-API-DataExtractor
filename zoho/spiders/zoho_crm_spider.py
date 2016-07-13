@@ -1,6 +1,8 @@
+import datetime
 import json
 import scrapy
 import logging
+
 from zoho.items import Record
 
 
@@ -25,6 +27,9 @@ class ModuleSpider(scrapy.Spider):
 
     def __init__(self, *args, **kwargs):
         super(ModuleSpider, self).__init__(*args, **kwargs)
+        # Set starting timestamp
+        self.timestamp = '{:%Y-%m-%d %H:%M:%S}'.format(datetime.datetime.now())
+        self.timestamp_concatenated = '{:%Y-%m-%d_%H-%M-%S}'.format(datetime.datetime.now())
 
     # getRecords formatted URL with pagination
     def get_records_url(self, module, from_index):
@@ -141,6 +146,9 @@ class ModuleSpider(scrapy.Spider):
         from_index = response.meta['from_index']
         next_from_index = self.MAX_RECORD_COUNT + from_index
         next_url = self.get_records_url(module, next_from_index)
+        # Skip if output record maximum is exceeded
+        if self.settings.get('OUTPUT_MAXIMUM_RECORDS') and next_from_index > self.settings.get('OUTPUT_MAXIMUM_RECORDS'):
+            return
         # Parse record content for each module
         yield scrapy.Request(next_url,
                              meta={'module': module,
