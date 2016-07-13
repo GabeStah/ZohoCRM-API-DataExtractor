@@ -22,8 +22,6 @@ class ModuleSpider(scrapy.Spider):
 
     custom_settings = {
         'DEBUG': True,
-        'FEED_FORMAT': 'jsonlines',
-        'FEED_URI': 's3://zoho-crm-api-dev/scraping/feeds/%(name)s/%(time)s.json',
         'ZOHO_CRM_AUTH_TOKEN': '9354d7363a28608a9e3878c2084d8dfd',
         'ZOHO_INCLUDE_MODULE_NAME': True,
         'ZOHO_MODULE_WHITELIST': ['Contacts', 'Leads']  # Determines which modules should be parsed (Default: 'ALL')
@@ -102,8 +100,6 @@ class ModuleSpider(scrapy.Spider):
         self.response = response
         # Passed module
         module = response.meta['module']
-        if not module:
-            return
 
         # Validate response
         if not self.is_response_valid(response):
@@ -124,8 +120,6 @@ class ModuleSpider(scrapy.Spider):
         if not self.is_json_valid():
             return
 
-        # TODO: Complete parsing of valid data
-        #records = list()
         logging.info('Data retrieved for module: {0}, url: {1}'.format(module, self.response.url))
         for row in self.json_data['response']['result'][module]['row']:
             record = Record()
@@ -134,13 +128,3 @@ class ModuleSpider(scrapy.Spider):
             for FL in row['FL']:
                 record[FL['val']] = FL['content']
             yield record
-
-        # ALTERNATIVE METHOD
-        # items = []
-        # for site in sites:
-        #     item = Website()
-        #     item['name'] = site.xpath('a/text()').extract()
-        #     item['url'] = site.xpath('a/@href').extract()
-        #     item['description'] = site.xpath('text()').re('-\s[^\n]*\\r')
-        #     items.append(item)
-        # return items
