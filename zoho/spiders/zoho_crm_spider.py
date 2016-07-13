@@ -5,14 +5,17 @@ from zoho.items import Record
 
 
 class ModuleSpider(scrapy.Spider):
+    AUTH_TOKEN = '9354d7363a28608a9e3878c2084d8dfd'
+    BASE_GET_RECORDS_URL = "https://crm.zoho.com/crm/private/json/{module}/getRecords?authtoken={auth_token}&scope=crmapi&fromIndex={from_index}&toIndex={to_index}"
+    INITIAL_FROM_INDEX = 1
+    MAX_RECORD_COUNT = 200
+
     allowed_domains = ["zoho.com"]
-    auth_token = '9354d7363a28608a9e3878c2084d8dfd'
-    base_get_records_url = "https://crm.zoho.com/crm/private/json/{0}/getRecords?authtoken={1}&scope=crmapi&fromIndex=1&toIndex=200"
     json_data = None
     name = "zoho"
     response = None
     start_urls = [
-        "https://crm.zoho.com/crm/private/json/Info/getModules?authtoken={0}&scope=crmapi&type=api".format(auth_token)
+        "https://crm.zoho.com/crm/private/json/Info/getModules?authtoken={auth_token}&scope=crmapi&type=api".format(auth_token=AUTH_TOKEN)
     ]
 
     # Module spider runs
@@ -20,15 +23,17 @@ class ModuleSpider(scrapy.Spider):
     # Record spider runs for each Module
     # Records output to S3
 
-    custom_settings = {
-        'DEBUG': True,
-        'ZOHO_CRM_AUTH_TOKEN': '9354d7363a28608a9e3878c2084d8dfd',
-        'ZOHO_INCLUDE_MODULE_NAME': True,
-        'ZOHO_MODULE_WHITELIST': ['Contacts', 'Leads']  # Determines which modules should be parsed (Default: 'ALL')
-    }
-
     def __init__(self, *args, **kwargs):
         super(ModuleSpider, self).__init__(*args, **kwargs)
+
+    # getRecords formatted URL with pagination
+    def get_records_url(self, module, from_index):
+        return self.BASE_GET_RECORDS_URL.format(
+            auth_token=self.AUTH_TOKEN,
+            module=module,
+            from_index=from_index,
+            to_index=self.to_index(from_index)
+        )
 
     # Determine if API indicated data is missing (empty DB table or query)
     def has_data(self):
@@ -87,9 +92,12 @@ class ModuleSpider(scrapy.Spider):
             module = row['content']
             # Ensure module is on approved whitelist
             if self.is_module_allowed(module):
-                url = self.base_get_records_url.format(module, self.auth_token)
+                url = self.get_records_url(module, self.INITIAL_FROM_INDEX)
                 # Parse record content for each module
-                yield scrapy.Request(url, meta={'module': module}, callback=self.parse_module_content)
+                yield scrapy.Request(url,
+                                     meta={'module': module,
+                                           'from_index': self.INITIAL_FROM_INDEX},
+                                     callback=self.parse_module_content)
 
     # Secondary parse for each `Module` to retrieve `Records` and output to feed
     def parse_module_content(self, response):
@@ -128,3 +136,17 @@ class ModuleSpider(scrapy.Spider):
             for FL in row['FL']:
                 record[FL['val']] = FL['content']
             yield record
+
+        # Generate next paginated URL
+        from_index = response.meta['from_index']
+        next_from_index = self.MAX_RECORD_COUNT + from_index
+        next_url = self.get_records_url(module, next_from_index)
+        # Parse record content for each module
+        yield scrapy.Request(next_url,
+                             meta={'module': module,
+                                   'from_index': next_from_index},
+                             callback=self.parse_module_content)
+
+    # Calculate the `to_index` for pagination
+    def to_index(self, from_index):
+        return from_index + self.MAX_RECORD_COUNT - 1

@@ -28,10 +28,12 @@ class MultiRecordPipeline(object):
             zoho_s3.upload(file.name, module + '/')
             # Delete temporary file
             # TODO: Verify correct deletion OR omit deletion entirely
-            os.remove(file.name)
+            # Temporary removal due to process lock
+            #os.remove(file.name)
 
     # Create the exporter (and file) based on the `name` parameter
     def create_exporter(self, name, file_type):
+        # TODO: Exporters must be generated programmatically with incremental output file names
         # Ensure exporter hasn't been generated
         if self.is_exporter_active(name):
             return
