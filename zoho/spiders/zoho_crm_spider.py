@@ -20,12 +20,7 @@ class ModuleSpider(scrapy.Spider):
     start_urls = [
         "https://crm.zoho.com/crm/private/json/Info/getModules?authtoken={auth_token}&scope=crmapi&type=api".format(auth_token=AUTH_TOKEN)
     ]
-    temp_dir = None
-
-    # Module spider runs
-    # callback to `parse`
-    # Record spider runs for each Module
-    # Records output to S3
+    temp_dirs = list()
 
     def __init__(self, *args, **kwargs):
         super(ModuleSpider, self).__init__(*args, **kwargs)
@@ -193,9 +188,6 @@ class ModuleSpider(scrapy.Spider):
     # Secondary parse for each `Module` to retrieve `Records` and output to feed
     def get_records(self, response):
         # TODO: Detect most recent execution date/time from either S3 timestamped directory or provided user setting
-        # code: data['response']['error']['code']
-        # code: 4100, Unable to populate data
-        # code: 4600, Unable to process your request
         self.response = response
         # Passed module
         module = response.meta['module']

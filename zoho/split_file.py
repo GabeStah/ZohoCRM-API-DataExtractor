@@ -4,7 +4,7 @@ import os
 
 class SplitFile:
 
-    def __init__(self, path=None, lines=250, destination=''):
+    def __init__(self, path=None, lines=1000, destination=''):
         if path is None:
             return
         self.base_name = os.path.basename(path)

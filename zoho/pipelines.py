@@ -27,13 +27,9 @@ class MultiRecordPipeline(object):
 
         # Split temporary files into appropriate sizes
         self.split_files()
-        # TODO: Determine if tmp deletion is reliably possible given processor lock
 
         # Upload
         self.upload_files()
-
-        # Destroy temp dir
-        self.spider.temp_dir.cleanup()
 
     # Create the exporter (and file) based on the `name` parameter
     def create_exporter(self, name, file_type):
@@ -41,13 +37,13 @@ class MultiRecordPipeline(object):
         if self.is_exporter_active(name):
             return
 
-        self.spider.temp_dir = tempfile.TemporaryDirectory(dir=os.path.dirname(file_name))
-
-        # create file: name.extension
-        file_name = os.path.join(self.spider.settings.get('LOCAL_TEMPORARY_DIRECTORY'), name + '.' + file_type)
-        # os.makedirs(os.path.dirname(file_name), exist_ok=True)
+        # Create temporary directory for each file to avoid process lock
+        temp_dir = tempfile.TemporaryDirectory()
+        # Track for later retrieval when splitting
+        self.spider.temp_dirs.append(temp_dir)
+        file_name = os.path.join(temp_dir.name, name + '.' + file_type)
+        # Add to active files list
         self.files[name] = open(file_name, 'w+b')
-        # TODO: (Optional) Modify exporter class used based on file_type
         # create exporter
         self.exporters[name] = JsonLinesItemExporter(self.files[name])
         # begin export
@@ -78,17 +74,18 @@ class MultiRecordPipeline(object):
         return item
 
     def split_files(self):
-        # Parse all files in LOCAL_TEMPORARY_DIRECTORY
-        local_dir = self.spider.settings.get('LOCAL_TEMPORARY_DIRECTORY')
-        for root, dirs, files in os.walk(local_dir):
-            for file_path in files:
-                file_name, extension = os.path.splitext(os.path.basename(file_path))
-                # Split file
-                SplitFile(path=os.path.join(root, file_path),
-                          lines=250,
-                          destination=os.path.join(self.spider.settings.get('LOCAL_OUTPUT_DIRECTORY'),
-                                                   self.spider.timestamp_concatenated,
-                                                   file_name))
+        # Loop through temporary directories
+        for temp_dir in self.spider.temp_dirs:
+            for root, dirs, files in os.walk(temp_dir.name):
+                # Loop through all files in each directory (to be safe, though should be one file per)
+                for file_path in files:
+                    file_name, extension = os.path.splitext(os.path.basename(file_path))
+                    # Split file into smaller chunks
+                    SplitFile(path=os.path.join(root, file_path),
+                              lines=self.spider.settings.get('OUTPUT_LINES_PER_FILE'),
+                              destination=os.path.join(self.spider.settings.get('LOCAL_OUTPUT_DIRECTORY'),
+                                                       self.spider.timestamp_concatenated,
+                                                       file_name))
 
     # Instantiates S3 class and uploads all files in temp directory
     def upload_files(self):
