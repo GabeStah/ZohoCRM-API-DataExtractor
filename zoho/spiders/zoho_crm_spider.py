@@ -1,15 +1,15 @@
 import datetime
 import json
-import scrapy
 import logging
+import scrapy
+from urllib.parse import urlencode
 
 from zoho.items import Record
 
 
 class ModuleSpider(scrapy.Spider):
-    AUTH_TOKEN = '9354d7363a28608a9e3878c2084d8dfd'
-    BASE_GET_RECORDS_URL = "https://crm.zoho.com/crm/private/json/{module}/getRecords?authtoken={auth_token}&scope=crmapi&fromIndex={from_index}&toIndex={to_index}{last_modified_time}"
-    BASE_GET_DELETED_RECORDS_URL = "https://crm.zoho.com/crm/private/json/{module}/getDeletedRecordIds?authtoken={auth_token}&scope=crmapi&fromIndex={from_index}&toIndex={to_index}{last_modified_time}"
+    ZOHO_BASE_MODULES_URL = "https://crm.zoho.com/crm/private/json/Info/getModules?{params}"
+    ZOHO_BASE_RECORDS_URL = "https://crm.zoho.com/crm/private/json/{module}/{method}?{params}"
     INITIAL_FROM_INDEX = 1
     MAX_RECORD_COUNT = 200
 
@@ -17,9 +17,6 @@ class ModuleSpider(scrapy.Spider):
     json_data = None
     name = "zoho"
     response = None
-    start_urls = [
-        "https://crm.zoho.com/crm/private/json/Info/getModules?authtoken={auth_token}&scope=crmapi&type=api".format(auth_token=AUTH_TOKEN)
-    ]
     temp_dirs = list()
 
     def __init__(self, *args, **kwargs):
@@ -27,32 +24,31 @@ class ModuleSpider(scrapy.Spider):
         # Set starting timestamp
         self.timestamp = '{:%Y-%m-%d %H:%M:%S}'.format(datetime.datetime.now())
         self.timestamp_concatenated = '{:%Y-%m-%d_%H-%M-%S}'.format(datetime.datetime.now())
+        self.start_urls = [self.get_modules_url()]
 
-    # getDeletedRecordIds formatted URL with pagination
-    def get_deleted_records_url(self, module, from_index):
-        last_modified_time = ''
-        if self.settings.get('ZOHO_LAST_MODIFIED_TIME'):
-            last_modified_time = '&lastModifiedTime={0}'.format(self.settings.get('ZOHO_LAST_MODIFIED_TIME'))
-        return self.BASE_GET_DELETED_RECORDS_URL.format(
-            auth_token=self.AUTH_TOKEN,
-            module=module,
-            from_index=from_index,
-            to_index=self.to_index(from_index),
-            last_modified_time=last_modified_time
-        )
+    # Override from_crawler to properly pass Settings instance for use during __init__
+    @classmethod
+    def from_crawler(cls, crawler):
+        settings = crawler.settings
+        return cls(settings=settings)
 
-    # getRecords formatted URL with pagination
-    def get_records_url(self, module, from_index):
-        last_modified_time = ''
+    # Get modules formatted URL.
+    def get_modules_url(self):
+        params = {'authtoken': self.settings.get('ZOHO_CRM_AUTH_TOKEN'),
+                  'scrope': 'crmapi'}
+        return self.ZOHO_BASE_MODULES_URL.format(params=urlencode(params))
+
+    # Get records formatted URL with pagination.
+    def get_records_url(self, module, from_index, method='getRecords'):
+        params = {'authtoken': self.settings.get('ZOHO_CRM_AUTH_TOKEN'),
+                  'scrope': 'crmapi',
+                  'fromIndex': from_index,
+                  'toIndex': self.to_index(from_index)}
         if self.settings.get('ZOHO_LAST_MODIFIED_TIME'):
-            last_modified_time = '&lastModifiedTime={0}'.format(self.settings.get('ZOHO_LAST_MODIFIED_TIME'))
-        return self.BASE_GET_RECORDS_URL.format(
-            auth_token=self.AUTH_TOKEN,
-            module=module,
-            from_index=from_index,
-            to_index=self.to_index(from_index),
-            last_modified_time=last_modified_time
-        )
+            params['lastModifiedTime'] = self.settings.get('ZOHO_LAST_MODIFIED_TIME')
+        return self.ZOHO_BASE_RECORDS_URL.format(module=module,
+                                                 method=method,
+                                                 params=urlencode(params))
 
     # Determine if API indicated data is missing (empty DB table or query)
     def has_data(self, data_type='record'):
@@ -124,7 +120,7 @@ class ModuleSpider(scrapy.Spider):
             # Ensure module is on approved whitelist
             if self.is_module_allowed(module):
                 # Get deleted records for module
-                deleted_records_url = self.get_deleted_records_url(module, self.INITIAL_FROM_INDEX)
+                deleted_records_url = self.get_records_url(module, self.INITIAL_FROM_INDEX, 'getDeletedRecordIds')
                 yield scrapy.Request(deleted_records_url,
                                      meta={'module': module,
                                            'from_index': self.INITIAL_FROM_INDEX},
@@ -174,7 +170,7 @@ class ModuleSpider(scrapy.Spider):
         # Generate next paginated URL
         from_index = response.meta['from_index']
         next_from_index = self.MAX_RECORD_COUNT + from_index
-        next_url = self.get_deleted_records_url(module, next_from_index)
+        next_url = self.get_records_url(module, next_from_index, 'getDeletedRecordIds')
         # Skip if output record maximum is exceeded
         if self.settings.get('OUTPUT_MAXIMUM_RECORDS') and next_from_index > self.settings.get(
                 'OUTPUT_MAXIMUM_RECORDS'):

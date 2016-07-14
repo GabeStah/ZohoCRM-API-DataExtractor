@@ -90,9 +90,3 @@ ENV/
 
 # PyCharm
 .idea
-
-# AWS Credentials
-.aws
-
-# Hide AWS Secrets
-/zoho/settings.py
