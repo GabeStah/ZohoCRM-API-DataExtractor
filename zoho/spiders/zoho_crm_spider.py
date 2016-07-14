@@ -9,6 +9,7 @@ from zoho.items import Record
 class ModuleSpider(scrapy.Spider):
     AUTH_TOKEN = '9354d7363a28608a9e3878c2084d8dfd'
     BASE_GET_RECORDS_URL = "https://crm.zoho.com/crm/private/json/{module}/getRecords?authtoken={auth_token}&scope=crmapi&fromIndex={from_index}&toIndex={to_index}"
+    BASE_GET_DELETED_RECORDS_URL = "https://crm.zoho.com/crm/private/json/{module}/getDeletedRecordIds?authtoken={auth_token}&scope=crmapi&fromIndex={from_index}&toIndex={to_index}"
     INITIAL_FROM_INDEX = 1
     MAX_RECORD_COUNT = 200
 
@@ -31,6 +32,15 @@ class ModuleSpider(scrapy.Spider):
         self.timestamp = '{:%Y-%m-%d %H:%M:%S}'.format(datetime.datetime.now())
         self.timestamp_concatenated = '{:%Y-%m-%d_%H-%M-%S}'.format(datetime.datetime.now())
 
+    # getDeletedRecordIds formatted URL with pagination
+    def get_deleted_records_url(self, module, from_index):
+        return self.BASE_GET_DELETED_RECORDS_URL.format(
+            auth_token=self.AUTH_TOKEN,
+            module=module,
+            from_index=from_index,
+            to_index=self.to_index(from_index)
+        )
+
     # getRecords formatted URL with pagination
     def get_records_url(self, module, from_index):
         return self.BASE_GET_RECORDS_URL.format(
@@ -41,14 +51,24 @@ class ModuleSpider(scrapy.Spider):
         )
 
     # Determine if API indicated data is missing (empty DB table or query)
-    def has_data(self):
-        try:
-            self.json_data['response']['nodata']
-        except KeyError:
-            return True
-        else:
-            logging.debug('No data was found matching query, url: {0}.'.format(self.response.url))
-            return False
+    def has_data(self, data_type='record'):
+        if data_type == 'record':
+            try:
+                self.json_data['response']['nodata']
+            except KeyError:
+                return True
+            else:
+                logging.debug('No data was found matching query, url: {0}.'.format(self.response.url))
+                return False
+        elif data_type == 'deleted_record':
+            try:
+                if type(self.json_data['response']['result']['DeletedIDs']) is bool and self.json_data['response']['result']['DeletedIDs']:
+                    return False
+            except KeyError:
+                logging.debug('No data was found matching query, url: {0}.'.format(self.response.url))
+                return False
+            else:
+                return True
 
     # Determine if API indicated error in retrieved JSON
     def is_json_valid(self):
@@ -97,15 +117,71 @@ class ModuleSpider(scrapy.Spider):
             module = row['content']
             # Ensure module is on approved whitelist
             if self.is_module_allowed(module):
-                url = self.get_records_url(module, self.INITIAL_FROM_INDEX)
-                # Parse record content for each module
-                yield scrapy.Request(url,
+                # Get deleted records for module
+                deleted_records_url = self.get_deleted_records_url(module, self.INITIAL_FROM_INDEX)
+                yield scrapy.Request(deleted_records_url,
                                      meta={'module': module,
                                            'from_index': self.INITIAL_FROM_INDEX},
-                                     callback=self.parse_module_content)
+                                     callback=self.get_deleted_records)
+                # Get record content for module
+                records_url = self.get_records_url(module, self.INITIAL_FROM_INDEX)
+                yield scrapy.Request(records_url,
+                                     meta={'module': module,
+                                           'from_index': self.INITIAL_FROM_INDEX},
+                                     callback=self.get_records)
+
+    # Secondary parse for each `Module` to retrieve deleted `Records` and output to feed
+    def get_deleted_records(self, response):
+        # TODO: Detect most recent execution date/time from either S3 timestamped directory or provided user setting
+        self.response = response
+        # Passed module
+        module = response.meta['module']
+
+        # Validate response
+        if not self.is_response_valid(response):
+            return
+
+        # Attempt JSON deserialization
+        try:
+            self.json_data = json.loads(response.body.decode())
+        except ValueError:
+            logging.debug('JSON could not be deserialized, url: {0}.'.format(self.response.url))
+            return
+
+        # Ensure dataset is not empty
+        if not self.has_data(data_type='deleted_record'):
+            return
+
+        # Verify JSON is valid
+        if not self.is_json_valid():
+            return
+
+        logging.info('Deleted Record data retrieved for module: {0}, url: {1}'.format(module, self.response.url))
+        if self.json_data['response']['result']['DeletedIDs']:
+            id_list = [i.strip() for i in self.json_data['response']['result']['DeletedIDs'].split(',')]
+            for ID in id_list:
+                record = Record()
+                if self.settings.get('ZOHO_INCLUDE_MODULE_NAME'):
+                    record['module'] = module
+                record['id'] = ID
+                yield record
+
+        # Generate next paginated URL
+        from_index = response.meta['from_index']
+        next_from_index = self.MAX_RECORD_COUNT + from_index
+        next_url = self.get_deleted_records_url(module, next_from_index)
+        # Skip if output record maximum is exceeded
+        if self.settings.get('OUTPUT_MAXIMUM_RECORDS') and next_from_index > self.settings.get(
+                'OUTPUT_MAXIMUM_RECORDS'):
+            return
+        # Parse record content for each module
+        yield scrapy.Request(next_url,
+                             meta={'module': module,
+                                   'from_index': next_from_index},
+                             callback=self.get_deleted_records)
 
     # Secondary parse for each `Module` to retrieve `Records` and output to feed
-    def parse_module_content(self, response):
+    def get_records(self, response):
         # TODO: Detect most recent execution date/time from either S3 timestamped directory or provided user setting
         # code: data['response']['error']['code']
         # code: 4100, Unable to populate data
@@ -153,7 +229,7 @@ class ModuleSpider(scrapy.Spider):
         yield scrapy.Request(next_url,
                              meta={'module': module,
                                    'from_index': next_from_index},
-                             callback=self.parse_module_content)
+                             callback=self.get_records)
 
     # Calculate the `to_index` for pagination
     def to_index(self, from_index):

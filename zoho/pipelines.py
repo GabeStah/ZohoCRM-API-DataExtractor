@@ -1,4 +1,5 @@
 import os
+import re
 from scrapy.xlib.pydispatch import dispatcher
 from scrapy import signals
 from scrapy.exporters import JsonLinesItemExporter
@@ -62,6 +63,9 @@ class MultiRecordPipeline(object):
     def process_item(self, item, spider):
         # Exporters are named after modules
         exporter_name = item['module']
+        # Deleted item
+        if len(item.fields) <= 2 and item['id']:
+            exporter_name += '-Deleted'
         self.create_exporter(exporter_name, spider.settings.get('OUTPUT_FILE_TYPE'))
 
         if self.is_exporter_active(exporter_name):
@@ -72,9 +76,13 @@ class MultiRecordPipeline(object):
     def split_files(self):
         # Parse all files in LOCAL_TEMPORARY_DIRECTORY
         local_dir = self.spider.settings.get('LOCAL_TEMPORARY_DIRECTORY')
+        reg_deleted = re.compile("^(\w+)-\w+")
         for root, dirs, files in os.walk(local_dir):
             for file_path in files:
                 file_name, extension = os.path.splitext(os.path.basename(file_path))
+                # Regex to check for 'deleted' item; if so, destination should remain as Module directory
+                if len(reg_deleted.findall(file_name)) > 0:
+                    file_name = reg_deleted.findall(file_name)[0]
                 # Split file
                 SplitFile(path=os.path.join(root, file_path),
                           lines=250,
