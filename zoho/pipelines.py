@@ -64,7 +64,7 @@ class MultiRecordPipeline(object):
         # Exporters are named after modules
         exporter_name = item['module']
         # Deleted item
-        if len(item.fields) <= 2 and item['id']:
+        if len(item._values) <= 2 and item['id']:
             exporter_name += '-Deleted'
         self.create_exporter(exporter_name, spider.settings.get('OUTPUT_FILE_TYPE'))
 

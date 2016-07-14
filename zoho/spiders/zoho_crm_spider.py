@@ -8,8 +8,8 @@ from zoho.items import Record
 
 class ModuleSpider(scrapy.Spider):
     AUTH_TOKEN = '9354d7363a28608a9e3878c2084d8dfd'
-    BASE_GET_RECORDS_URL = "https://crm.zoho.com/crm/private/json/{module}/getRecords?authtoken={auth_token}&scope=crmapi&fromIndex={from_index}&toIndex={to_index}"
-    BASE_GET_DELETED_RECORDS_URL = "https://crm.zoho.com/crm/private/json/{module}/getDeletedRecordIds?authtoken={auth_token}&scope=crmapi&fromIndex={from_index}&toIndex={to_index}"
+    BASE_GET_RECORDS_URL = "https://crm.zoho.com/crm/private/json/{module}/getRecords?authtoken={auth_token}&scope=crmapi&fromIndex={from_index}&toIndex={to_index}{last_modified_time}"
+    BASE_GET_DELETED_RECORDS_URL = "https://crm.zoho.com/crm/private/json/{module}/getDeletedRecordIds?authtoken={auth_token}&scope=crmapi&fromIndex={from_index}&toIndex={to_index}{last_modified_time}"
     INITIAL_FROM_INDEX = 1
     MAX_RECORD_COUNT = 200
 
@@ -34,20 +34,28 @@ class ModuleSpider(scrapy.Spider):
 
     # getDeletedRecordIds formatted URL with pagination
     def get_deleted_records_url(self, module, from_index):
+        last_modified_time = ''
+        if self.settings.get('ZOHO_LAST_MODIFIED_TIME'):
+            last_modified_time = '&lastModifiedTime={0}'.format(self.settings.get('ZOHO_LAST_MODIFIED_TIME'))
         return self.BASE_GET_DELETED_RECORDS_URL.format(
             auth_token=self.AUTH_TOKEN,
             module=module,
             from_index=from_index,
-            to_index=self.to_index(from_index)
+            to_index=self.to_index(from_index),
+            last_modified_time=last_modified_time
         )
 
     # getRecords formatted URL with pagination
     def get_records_url(self, module, from_index):
+        last_modified_time = ''
+        if self.settings.get('ZOHO_LAST_MODIFIED_TIME'):
+            last_modified_time = '&lastModifiedTime={0}'.format(self.settings.get('ZOHO_LAST_MODIFIED_TIME'))
         return self.BASE_GET_RECORDS_URL.format(
             auth_token=self.AUTH_TOKEN,
             module=module,
             from_index=from_index,
-            to_index=self.to_index(from_index)
+            to_index=self.to_index(from_index),
+            last_modified_time=last_modified_time
         )
 
     # Determine if API indicated data is missing (empty DB table or query)
