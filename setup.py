@@ -4,6 +4,13 @@ setup(
     name='ZohoCRM',
     version='1.0.0',
     packages=find_packages(),
+
+    install_requires=[
+        'boto3',
+        'botocore',
+        'scrapy',
+    ],
+
     url='',
     license='',
     author='Gabe Wyatt',
