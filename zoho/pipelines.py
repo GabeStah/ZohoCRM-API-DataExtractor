@@ -1,8 +1,8 @@
 import os
-import re
 from scrapy.xlib.pydispatch import dispatcher
 from scrapy import signals
 from scrapy.exporters import JsonLinesItemExporter
+import tempfile
 from zoho.split_file import SplitFile
 from zoho.zoho_s3 import ZohoS3
 
@@ -29,14 +29,11 @@ class MultiRecordPipeline(object):
         self.split_files()
         # TODO: Determine if tmp deletion is reliably possible given processor lock
 
-        # Initialize S3
-        zoho_s3 = ZohoS3(spider)
-        # Upload files
-        for root, dirs, files in os.walk(os.path.join(self.spider.settings.get('LOCAL_OUTPUT_DIRECTORY'),
-                                                      self.spider.timestamp_concatenated)):
-            for file_path in files:
-                zoho_s3.upload(os.path.join(root, file_path),
-                               os.path.join(root, file_path))
+        # Upload
+        self.upload_files()
+
+        # Destroy temp dir
+        self.spider.temp_dir.cleanup()
 
     # Create the exporter (and file) based on the `name` parameter
     def create_exporter(self, name, file_type):
@@ -44,9 +41,11 @@ class MultiRecordPipeline(object):
         if self.is_exporter_active(name):
             return
 
+        self.spider.temp_dir = tempfile.TemporaryDirectory(dir=os.path.dirname(file_name))
+
         # create file: name.extension
-        file_name = self.spider.settings.get('LOCAL_TEMPORARY_DIRECTORY') + name + '.' + file_type
-        os.makedirs(os.path.dirname(file_name), exist_ok=True)
+        file_name = os.path.join(self.spider.settings.get('LOCAL_TEMPORARY_DIRECTORY'), name + '.' + file_type)
+        # os.makedirs(os.path.dirname(file_name), exist_ok=True)
         self.files[name] = open(file_name, 'w+b')
         # TODO: (Optional) Modify exporter class used based on file_type
         # create exporter
@@ -63,10 +62,15 @@ class MultiRecordPipeline(object):
     def process_item(self, item, spider):
         # Exporters are named after modules
         exporter_name = item['module']
+
         # Deleted item
         if len(item._values) <= 2 and item['id']:
             exporter_name += '-Deleted'
         self.create_exporter(exporter_name, spider.settings.get('OUTPUT_FILE_TYPE'))
+
+        # Remove module from export field unless setting requests it
+        if not spider.settings.get('ZOHO_INCLUDE_MODULE_NAME'):
+            del item['module']
 
         if self.is_exporter_active(exporter_name):
             # Call the base `export_item` method for parent exporter type
@@ -76,16 +80,23 @@ class MultiRecordPipeline(object):
     def split_files(self):
         # Parse all files in LOCAL_TEMPORARY_DIRECTORY
         local_dir = self.spider.settings.get('LOCAL_TEMPORARY_DIRECTORY')
-        reg_deleted = re.compile("^(\w+)-\w+")
         for root, dirs, files in os.walk(local_dir):
             for file_path in files:
                 file_name, extension = os.path.splitext(os.path.basename(file_path))
-                # Regex to check for 'deleted' item; if so, destination should remain as Module directory
-                if len(reg_deleted.findall(file_name)) > 0:
-                    file_name = reg_deleted.findall(file_name)[0]
                 # Split file
                 SplitFile(path=os.path.join(root, file_path),
                           lines=250,
                           destination=os.path.join(self.spider.settings.get('LOCAL_OUTPUT_DIRECTORY'),
                                                    self.spider.timestamp_concatenated,
                                                    file_name))
+
+    # Instantiates S3 class and uploads all files in temp directory
+    def upload_files(self):
+        # Initialize S3
+        zoho_s3 = ZohoS3(self.spider)
+        # Upload files
+        for root, dirs, files in os.walk(os.path.join(self.spider.settings.get('LOCAL_OUTPUT_DIRECTORY'),
+                                                      self.spider.timestamp_concatenated)):
+            for file_path in files:
+                zoho_s3.upload(os.path.join(root, file_path),
+                               os.path.join(root, file_path))

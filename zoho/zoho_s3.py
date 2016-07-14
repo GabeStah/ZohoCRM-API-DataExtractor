@@ -64,13 +64,14 @@ class ZohoS3:
             remote_path = remote_path[1:]
         return remote_path
 
+    # Retrieve valid bucket resource
     def get_bucket(self):
-        # if exists
+        # if exists, create
         if not self.bucket_exists():
-            # Create
             self.create_bucket()
         return self.resource.Bucket(self.bucket_name)
 
+    # Upload specified locale file to AWS
     def upload(self, local_path, remote_path=''):
         try:
             config = TransferConfig(
