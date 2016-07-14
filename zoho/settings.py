@@ -15,30 +15,41 @@ import os
 # ---------------------
 # AWS access key ID.  Can be specified directly as a string or indirectly as environmental variable.
 AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID')
+
 # AWS secret access key.  Can be specified directly as a string or indirectly as environmental variable.
 AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY')
+
 # Name of AWS S3 bucket to export to.
 AWS_BUCKET_NAME = 'zoho-crm-api-dev-2'
+
 # Parent directory for all split export files to be stored AFTER split and upload.
 LOCAL_OUTPUT_DIRECTORY = 'exports'
+
 # Type of file to output.
 OUTPUT_FILE_TYPE = 'json'
+
 # Number of lines (maximum) per generated file before a new file is created and uploaded.  (default: 1000)
 OUTPUT_LINES_PER_FILE = 1000
-# Max requested records per `Module` (default: None -- Returns all records)
-OUTPUT_MAXIMUM_RECORDS = 750
+
 # S3 Transfer Config -- See: http://boto3.readthedocs.io/en/latest/_modules/boto3/s3/transfer.html
 S3_NUM_DOWNLOAD_ATTEMPTS = 10
 S3_MAX_CONCURRENCY = 10
 S3_MULTIPART_CHUNKSIZE = 8 * 1024 * 1024
 S3_MULTIPART_THRESHOLD = 8 * 1024 * 1024
+
 # Zoho CRM authentication token.  Can be specified directly as a string or indirectly as environmental variable.
 ZOHO_CRM_AUTH_TOKEN = os.getenv('ZOHO_CRM_AUTH_TOKEN')
+
 # Creates an additional extra export 'module' and value of the Zoho CRM Module (default: False).
 ZOHO_INCLUDE_MODULE_NAME = False
+
 # API requests will only retrieve data created or modified after this time (default: None -- Returns all records)
 # STRING FORMAT: '{:%Y-%m-%d %H:%M:%S}'.format(datetime.datetime.now()) e.g. '2016-07-11 00:00:00'
 ZOHO_LAST_MODIFIED_TIME = None
+
+# Max requested records per `Module` (default: None -- Returns all records)
+ZOHO_MAX_RECORDS_PER_MODULE = 750
+
 # Determines which modules should be parsed (Default: None or 'ALL' -- Returns all records for all valid modules)
 ZOHO_MODULE_WHITELIST = ['Contacts', 'Leads']
 # ---------------------

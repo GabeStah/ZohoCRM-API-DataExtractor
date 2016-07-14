@@ -171,9 +171,9 @@ class ModuleSpider(scrapy.Spider):
         from_index = response.meta['from_index']
         next_from_index = self.MAX_RECORD_COUNT + from_index
         next_url = self.get_records_url(module, next_from_index, 'getDeletedRecordIds')
+        max_records = self.settings.get('ZOHO_MAX_RECORDS_PER_MODULE')
         # Skip if output record maximum is exceeded
-        if self.settings.get('OUTPUT_MAXIMUM_RECORDS') and next_from_index > self.settings.get(
-                'OUTPUT_MAXIMUM_RECORDS'):
+        if max_records and next_from_index > max_records:
             return
         # Parse record content for each module
         yield scrapy.Request(next_url,
@@ -219,8 +219,9 @@ class ModuleSpider(scrapy.Spider):
         from_index = response.meta['from_index']
         next_from_index = self.MAX_RECORD_COUNT + from_index
         next_url = self.get_records_url(module, next_from_index)
+        max_records = self.settings.get('ZOHO_MAX_RECORDS_PER_MODULE')
         # Skip if output record maximum is exceeded
-        if self.settings.get('OUTPUT_MAXIMUM_RECORDS') and next_from_index > self.settings.get('OUTPUT_MAXIMUM_RECORDS'):
+        if max_records and next_from_index > max_records:
             return
         # Parse record content for each module
         yield scrapy.Request(next_url,
