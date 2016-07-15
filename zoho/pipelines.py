@@ -8,20 +8,38 @@ from zoho.zoho_s3 import ZohoS3
 
 
 class MultiRecordPipeline(object):
+    """Pipeline used to generate exporters and create local files prior to splitting and uploading.
+
+    :param object: Necessary extension as a Pipeline class.
+    :type object: object
+    """
     exporters = dict()
     files = dict()
     spider = None
 
     def __init__(self):
+        """Initializes `MultiRecordPipeline while also calling `spider_opened` and `spider_closed` methods."""
         dispatcher.connect(self.spider_opened, signal=signals.spider_opened)
         dispatcher.connect(self.spider_closed, signal=signals.spider_closed)
 
-    # Necessary for inheritance
     def spider_opened(self, spider):
+        """Required for inheritance and used to assign the `scrapy.Spider` instance to `self.spider` for later use.
+
+        :param spider: `scrapy.Spider` in use by the current pipeline.
+        :type spider: scrapy.Spider
+        :return: Nothing
+        :rtype: None
+        """
         self.spider = spider
 
-    # During closing process, finish all exporters and close all files
     def spider_closed(self, spider):
+        """During closing process, finishe all exporters, close files, split files, and upload files.
+
+        :param spider: `scrapy.Spider` in use by the current pipeline.
+        :type spider: scrapy.Spider
+        :return: Nothing
+        :rtype: None
+        """
         [e.finish_exporting() for e in self.exporters.values()]
         [f.close() for f in self.files.values()]
 
@@ -31,8 +49,16 @@ class MultiRecordPipeline(object):
         # Upload
         self.upload_files()
 
-    # Create the exporter (and file) based on the `name` parameter
-    def create_exporter(self, name, file_type):
+    def create_exporter(self, name, file_type='json'):
+        """Create the exporter (and file) based on the passed `name` parameter, typically the `Module` being parsed.
+
+        :param name: Zoho CRM `Module` `name` that is parsed (e.g. Contacts, Leads, etc).
+        :type name: str
+        :param file_type: The desired file extension (default: json).
+        :type file_type: str
+        :return: Nothing
+        :rtype: None
+        """
         # Ensure exporter hasn't been generated
         if self.is_exporter_active(name):
             return
@@ -50,12 +76,38 @@ class MultiRecordPipeline(object):
         self.exporters[name].start_exporting()
 
     def is_exporter_active(self, exporter):
+        """Determines if the passed `exporter` name is already active (created), ensuring duplicates aren't created.
+
+        :param exporter: Name of the exporter.
+        :type exporter: str
+        :return: Is the passed exporter name already in the active list.
+        :rtype: bool
+        """
         return exporter in set(self.exporters.keys())
 
     def is_file_active(self, file):
+        """Determines if the passed `file` name is already active (created), ensuring duplicates aren't created.
+
+        :param exporter: Name of the file.
+        :type exporter: str
+        :return: Is the passed file name already in the active list.
+        :rtype: bool
+        """
         return file in set(self.files.values())
 
     def process_item(self, item, spider):
+        """Handles all processing of generated `zoho.items.Record` items (overriding `scrapy.Item`).
+
+        Based on the `module` field passed along with the item, an exporter is created (if necessary), then the
+        exporter is called and the `.export_item` method initiates the export process.
+
+        :param item: The item containing all parsed data for this `Record`. Overrides `scrapy.Item`.
+        :type item: zoho.items.Record
+        :param spider: The `scrapy.Spider` which obtained this `Record`.
+        :type spider: scrapy.Spider
+        :return: As required by inheritence, the `zoho.items.Record` is returned after processing.
+        :rtype: zoho.items.Record
+        """
         # Exporters are named after modules
         exporter_name = item['module']
 
@@ -74,6 +126,17 @@ class MultiRecordPipeline(object):
         return item
 
     def split_files(self):
+        """Splits all downloaded files into smaller, iterative chunked files, if necessary.
+
+        Every temporary directory is looped, then all generated files within temp directories.  For each file found,
+        the `zoho.split_file.SplitFile` class is instanced, which handles actual splitting procedures.
+
+        A timestamped directory is generated to house all split files, which is also placed inside the
+        `LOCAL_OUTPUT_DIRECTORY`, if specified.
+
+        :return: Nothing
+        :rtype: None
+        """
         # Loop through temporary directories
         for temp_dir in self.spider.temp_dirs:
             for root, dirs, files in os.walk(temp_dir.name):
@@ -83,12 +146,16 @@ class MultiRecordPipeline(object):
                     # Split file into smaller chunks
                     SplitFile(path=os.path.join(root, file_path),
                               lines=self.spider.settings.get('OUTPUT_LINES_PER_FILE'),
-                              destination=os.path.join(self.spider.settings.get('LOCAL_OUTPUT_DIRECTORY'),
-                                                       self.spider.timestamp_concatenated,
-                                                       file_name))
+                              dest_dir=os.path.join(self.spider.settings.get('LOCAL_OUTPUT_DIRECTORY'),
+                                                    self.spider.timestamp_concatenated,
+                                                    file_name))
 
-    # Instantiates S3 class and uploads all files in temp directory
     def upload_files(self):
+        """Instantiates the `zoho.zoho_s3.ZohoS3` class and attempts to upload all files in output directory.
+
+        :return: Nothing
+        :rtype: None
+        """
         # Initialize S3
         zoho_s3 = ZohoS3(self.spider)
         # Upload files

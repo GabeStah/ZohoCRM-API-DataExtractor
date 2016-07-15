@@ -7,11 +7,24 @@ RESOURCE_TYPE = 's3'
 
 
 class ZohoS3:
+    """Handles all connections with Amazon S3 services, authenticating a session, creating a bucket (if necessary),
+    and uploading all split files.
+
+    Hooks into the `boto3` and `botocore` modules for `Session`, `Resource`, `TransferConfig`, and `S3Transfer`.
+    """
     bucket_name = None
     resource = None
     spider = None
 
     def __init__(self, spider):
+        """Initializes the `ZohoS3` class amd generates a `boto3.Session`, `resource.meta.client`, and S3 bucket
+        (if needed).
+
+        Appropriate errors are called if connection fails at any point in the chain.
+
+        :param spider: `scrapy.Spider` reference for use throughout the class instance.
+        :type spider: scrapy.Spider
+        """
         # Assign spider
         self.spider = spider
         # Assign bucket name
@@ -42,6 +55,11 @@ class ZohoS3:
         self.bucket = self.get_bucket()
 
     def bucket_exists(self):
+        """Determines if the specified bucket name in `AWS_BUCKET_NAME` already exists in S3.
+
+        :return: Does the bucket exist.
+        :rtype: bool
+        """
         try:
             self.resource.meta.client.head_bucket(Bucket=self.bucket_name)
         except botocore.exceptions.ClientError as e:
@@ -53,26 +71,55 @@ class ZohoS3:
         return True
 
     def create_bucket(self):
+        """Creates a new bucket from the `AWS_BUCKET_NAME`.  `self.bucket_exists()` must be called first to verify
+        that a new bucket can and should be created.
+
+        :return: Nothing
+        :rtype: None
+        """
         # Generate bucket
         self.resource.create_bucket(Bucket=self.bucket_name)
 
-    # Ugly hack for proper AWS S3 path formatting
     def format_remote_path(self, path):
+        """Ugly hack for proper AWS S3 path formatting.
+
+        Due to underlying operating system, when using the Zoho CRM API crawler module on Windows, it may be
+        necessary to perform cleanup on the paths.
+
+        :param path: Path to properly format.
+        :type path: str
+        :return: Formatted path.
+        :rtype: str
+        """
         output_dir = self.spider.settings.get('LOCAL_OUTPUT_DIRECTORY')
         remote_path = path.replace(output_dir, '').replace('\\', '/')
         if remote_path.startswith('/'):
             remote_path = remote_path[1:]
         return remote_path
 
-    # Retrieve valid bucket resource
     def get_bucket(self):
+        """Creates a new bucket (if necessary), then retrieve valid bucket `resource.Bucket` instance for use elsewhere.
+
+        :return: Active `resource.Bucket`.
+        :rtype: resource.Bucket
+        """
         # if exists, create
         if not self.bucket_exists():
             self.create_bucket()
         return self.resource.Bucket(self.bucket_name)
 
-    # Upload specified locale file to AWS
     def upload(self, local_path, remote_path=''):
+        """Uploads the specified local file to Amazon S3.
+
+        Utilizes numerous `AWS_` settings to handle transfer limitations and speed.  See `settings.py` for details.
+
+        :param local_path: Full path to the local file to be uploaded.
+        :type local_path: str
+        :param remote_path: Full remote path (within the bucket) to place the file in on S3 (optional, default: '').
+        :type remote_path: str or None
+        :return: Nothing
+        :rtype: None
+        """
         try:
             config = TransferConfig(
                 num_download_attempts=self.spider.settings.get('S3_NUM_DOWNLOAD_ATTEMPTS'),
