@@ -30,6 +30,14 @@ Files are split into chunks based on the maximum number of lines per file, as sp
 
 Finally, once all files are split as necessary, the entire batch of files are uploaded to the `Amazon S3` bucket specified by `AWS_BUCKET_NAME` (if the bucket doesn't exist, it is created).
 
+## Extensions
+
+Works well with Scrapy extensions for data export.  See: 
+
+- https://github.com/GabeStah/scrapy-feed-exporter-aws-s3
+- https://github.com/GabeStah/scrapy-feed-exporter-segment
+- https://github.com/GabeStah/scrapy-feed-exporter-stitch
+
 ## Customisation
 
 In some cases, it may be desired to limit the `Zoho CRM` data that is extracted or the exported files intended to be uploaded to `Amazon S3`.  Below are a few configurable `Settings` to allow this.
